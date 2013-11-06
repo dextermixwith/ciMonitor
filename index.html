@@ -2,6 +2,7 @@
 <html>
     <head>
         <title>ciMonitor</title>
+        <link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Share+Tech+Mono">
         <link href="css/style.css" rel="stylesheet" type="text/css" />
     </head>
 
@@ -14,7 +15,9 @@
 		<audio id="repeatedlyFailing"><source src="sound/repeatedlyFailing.mp3" type="audio/mpeg"></audio>
 		<audio id="noChange"><source src="sound/noChange.mp3" type="audio/mpeg"></audio>
 		
+        <h1>APPS</h1>
 		<div id="wrapper">
+            
 			<div id="builds">
 				<ul>
 					<li>Contacting build server...</li>
@@ -26,68 +29,76 @@
 
         <script src="js/jquery-1.9.1.min.js" type="text/javascript"></script> 
         <script type="text/javascript">
-
+                    
             $(document).ready(function () {
                 var lastData = null;
+                var buildServerDomain = 'build.esendex.com';
+                var jobsToWatchRegex = new RegExp('apps|sdk', 'i'); 
+                
                 setInterval(function () {
                     $.ajax({
-						url: "http://build.esendex.com/view/All/api/json?format=json&jsonp=?",
-                        dataType: "jsonp",
+						url: 'http://'+ buildServerDomain +'/view/All/api/json?format=json&jsonp=?',
+                        dataType: 'jsonp',
 						timeout: 5000
 					}).done(function (data) {
-						$("#builds ul").html("");
+						$('#builds ul').html('');
 						var transitions = [];
-						var statuses = { "blue":0, "blue_anime":0, "red":0, "red_anime":0, "aborted":0, "disabled":0, "unknown":0};
+						var statuses = { 'blue':0, 'blue_anime':0, 'red':0, 'red_anime':0, 'aborted':0, 'disabled':0, 'unknown':0};
 
 						$(data.jobs).each(function (index) {
-							$("#builds ul").append("<li class=\"" + this.color + "\">" + this.name + "</li>");
+                        
+                            if(jobsToWatchRegex.test(this.name))
+                            {                            
+                                $('#builds ul').append('<li class=\'' + this.color + '\'>' + this.name + '</li>');
 							
-							if (lastData) {
-								var transition = transitionFor(this.color, lastData.jobs[index]);
-								if (transition)
-									transitions.push(transition);
-							}
-							
-							if (!statuses[this.color])
-								statuses[this.color] = 0;
-							statuses[this.color]++;
+                                if (lastData) {
+                                    var transition = transitionFor(this.color, lastData.jobs[index]);
+                                    if (transition)
+                                        transitions.push(transition);
+                                }
+                                
+                                if (!statuses[this.color])
+                                    statuses[this.color] = 0;
+                                statuses[this.color]++;
+                            }
 						});
 						
 						$(transitions).each(function() {
-							$("audio#"+this)[0].play();
+							$('audio#'+this)[0].play();
 						});
 												
-						$('body').attr("class", overallStatus(data.jobs, statuses));
+						$('body').attr('class', overallStatus(data.jobs, statuses));
 						lastData = data;
 					}).fail(function(jqXHR, textStatus) {
-						$("#builds ul").html("<li class=\"red\">Error contacting server</li>");
-						$('body').attr("class", "error");
+						$('#builds ul').html('<li class=\'red\'>Error contacting server</li>');
+						$('body').attr('class', 'error');
 					});
                 }, 5000);
             }); 	
 
 			function transitionFor(currentStatus, lastStatus) {
 				if (lastStatus===undefined)
-					return "new";
-				if (currentStatus=="blue" && lastStatus.color=="blue_anime")
-					return "successful";
-				if (currentStatus=="blue" && lastStatus.color=="red_anime")
-					return "fixed";
-				if (currentStatus=="red" && lastStatus.color=="blue_anime")
-					return "failed";
-				if (currentStatus=="red" && lastStatus.color=="red_anime")
-					return "repeatedlyFailing";
+					return 'new';
+				if (currentStatus=='blue' && lastStatus.color=='blue_anime')
+					return 'successful';
+				if (currentStatus=='blue' && lastStatus.color=='red_anime')
+					return 'fixed';
+				if (currentStatus=='red' && lastStatus.color=='blue_anime')
+					return 'failed';
+				if (currentStatus=='red' && lastStatus.color=='red_anime')
+					return 'repeatedlyFailing';
 				if (currentStatus.match(/_anime$/) && !lastStatus.color.match(/_anime$/))
-					return "started";
-				return "noChange";
+					return 'started';
+				return 'noChange';
 			}
             
             function overallStatus(jobs, statuses) {				
-                if (jobs.length > 0 && jobs.length - statuses["disabled"] == statuses["blue"] + statuses["blue_anime"])
-                    return "blue";
-                if (statuses["red"] > 0 || statuses["red_anime"] > 0 || statuses["aborted"] > 0 || statuses["aborted_anime"] > 0)
-                    return "red";
-                return "unknown";
+                if (jobs.length > 0 && jobs.length - statuses['disabled'] == statuses['blue'] + statuses['blue_anime'])
+                    return 'blue';
+                if (statuses['red'] > 0 || statuses['red_anime'] > 0 || statuses['aborted'] > 0 || statuses['aborted_anime'] > 0)
+                    return 'red';
+                                       
+                return 'unknown';
             }
         </script>        
     </body>

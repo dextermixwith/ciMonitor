@@ -1,8 +1,12 @@
 ﻿body, html {
     padding: 0;
     margin: 0;
-    font-family: Arial, Sans-Serif;
-	height: 100%;
+    font-family: 'Share Tech Mono', serif;
+	height: 97%;
+}
+
+h1 {
+    margin: 5px;
 }
 
 #wrapper { 
