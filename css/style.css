@@ -42,6 +42,10 @@ li {
 	word-wrap: break-word;
 }
 
+.jobDetail {
+    font-size: 20pt;
+}
+
 
 #builds .blue,
 #builds .disabled {
