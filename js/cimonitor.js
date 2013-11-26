@@ -2,7 +2,9 @@ $(document).ready(function () {
     var lastData = null;
     var buildServerDomain = 'build.esendex.com';
     var jobsToWatchRegex = new RegExp('^apps|^sdk|^Esendex.Specsavers', 'i'); 
-    
+    var displayStatuses = ['blue_anime', 'red', 'red_anime', 'aborted'];
+    var buildBranches = {};
+
     setInterval(function () {
         $.ajax({
 			url: 'http://'+ buildServerDomain +'/api/json?format=json&pretty=true&jsonp=?',
@@ -12,25 +14,25 @@ $(document).ready(function () {
 			$('#builds ul').html('');
 			var transitions = [];
 			var statuses = { 'blue':0, 'blue_anime':0, 'red':0, 'red_anime':0, 'aborted':0, 'disabled':0, 'unknown':0};
+			var activeJobs = [];
 
             var jobsHtml = '';
             var filteredJobsCount = 0; 
             
 			$(data.jobs).each(function (index) {
             
-                if(jobsToWatchRegex.test(this.name))
-                {                   
-                	var jobName = this.name;
-                	var jobStatusId = jobName.split('.').join('_');
+                if(jobsToWatchRegex.test(this.name)) {               
+                	if (_.contains(displayStatuses, this.color)) {
+	                	var activeJob = { 
+	                		name : this.name,
+	                		statusColor : this.color,
+	                		statusElementId : this.name.split('.').join('_') 
+	                	};
 
-                    jobsHtml += '<li id=\'' + jobStatusId + '\' class=\'' + this.color + '\'>' + this.name ;
-                    
-                    if(this.color === 'red')
-                    {
-                        jobsHtml += '<ul class=\'jobDetail\'><li>naughty</li></ul>';
-                    }
+	                	activeJobs.push(activeJob);
 
-                    jobsHtml += '</li>';
+	                    jobsHtml += '<li id=\'' + activeJob.statusElementId + '\' class=\'' + activeJob.statusColor + '\'>' + activeJob.name + '</li>';
+                	}  
                                                                                 
                     if (lastData) {
                         var transition = transitionFor(this.color, lastData.jobs[index]);
@@ -55,31 +57,51 @@ $(document).ready(function () {
             
             $('#builds ul').append(jobsHtml);
             
-            $('#builds ul li').each(function() {
-            	var jobName = $(this).attr('id').split('.').join('_');
-                $.ajax({
-					url: 'http://'+ buildServerDomain +'/job/' + jobName + '/api/json?format=json&pretty=true&jsonp=?',
-                    dataType: 'jsonp',
-					timeout: 5000
-                }).done(function(data){
-                	var lastBuildUrl = data.builds[0].url + '/api/json?format=json&pretty=true&jsonp=?';
-                    $.ajax({
-						url: lastBuildUrl,
-                        dataType: 'jsonp',
+            $(activeJobs).each(function() {
+            	var activeJob = this;
+           		if (_.has(buildBranches, activeJob.statusElementId)) {
+        			appendBranchDetails(activeJob.statusElementId, buildBranches[activeJob.statusElementId]);	
+        		} else {
+	                $.ajax({
+						url: 'http://'+ buildServerDomain +'/job/' + activeJob.name + '/api/json?format=json&pretty=true&jsonp=?',
+	                    dataType: 'jsonp',
 						timeout: 5000
-                    }).done(function(data){
-                    	var lastBuildRevision = data.actions[2].lastBuildRevision;
+	                }).done(function(data){
+	                	var lastBuildUrl = data.builds[0].url + '/api/json?format=json&pretty=true&jsonp=?';
+	                    $.ajax({
+							url: lastBuildUrl,
+	                        dataType: 'jsonp',
+							timeout: 5000
+	                    }).done(function(data){
+	                    	var cause = data.actions[0].causes[0];
+	                    	if(cause.upstreamBuild) {
+			                	var upstreamBuildUrl = 'http://' + buildServerDomain + '/' + cause.upstreamUrl + cause.upstreamBuild + '/api/json?format=json&pretty=true&jsonp=?';
+			                    $.ajax({
+									url: upstreamBuildUrl,
+			                        dataType: 'jsonp',
+									timeout: 5000
+			                    }).done(function(data){
+			                    	appendBranchDetails(activeJob.statusElementId, data.actions[2].lastBuiltRevision.branch[0]);
+			                    	buildBranches[activeJob.statusElementId] = data.actions[2].lastBuiltRevision.branch[0];
+			                    });
+	                    	} else {
+			                    appendBranchDetails(activeJob.statusElementId, data.actions[2].lastBuiltRevision.branch[0]);
+		                    	buildBranches[activeJob.statusElementId] = data.actions[2].lastBuiltRevision.branch[0];
+	                    	}
+	                	});
                 	});
-                });
+				}
             });
-
-
 		}).fail(function(jqXHR, textStatus) {
 			$('#builds ul').html('<li class=\'red\'>Error contacting server</li>');
 			$('body').attr('class', 'error');
 		});
     }, 5000);
 }); 	
+
+function appendBranchDetails(statusElementId, branchDetails) {
+	$('#' + statusElementId).after('<ul class=\'jobDetail\'><li>Triggered by change/push on :' + branchDetails.name + '</li></ul>');
+};
 
 function transitionFor(currentStatus, lastStatus) {
 	if (lastStatus===undefined)
